@@ -13,5 +13,5 @@ jobs:
         - name: List file
           run: latest
 
-        - name: Read file
+        - name: Read files
           run: cat README.md
