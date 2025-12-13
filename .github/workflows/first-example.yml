@@ -6,12 +6,12 @@ jobs:
     first_job: 
         runs-on: unbuntu-latest
         steps:
-            - name: Welcome message
-              run: echo "My First GitHub Actions Job"
+        - name: Welcome message
+          run: echo "My First GitHub Actions Job"
 
 
-            - name: List file
-              run: latest
+        - name: List file
+          run: latest
 
-            - name: Read file
-              run: cat README.md
+        - name: Read file
+          run: cat README.md
