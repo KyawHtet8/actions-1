@@ -10,9 +10,12 @@ jobs:
          matrix:
             os: [ubuntu-latest, ubuntu-20.04, windows-latest]
             images: [hello-world, alpine]
+            
+            # ဖြေရှင်းနည်း: Incompatible ဖြစ်သော တွဲဖက်မှုကို ဖယ်ရှားခြင်း
             exclude:
-                - image: alpine
-                  os: windows-latest
+              - os: windows-latest
+                images: alpine
+                
         runs-on: ${{ matrix.os }}
         steps:
         - name: Echo Docker Details
