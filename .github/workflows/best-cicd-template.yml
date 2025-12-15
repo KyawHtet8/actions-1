@@ -1,0 +1,106 @@
+name: Comprehensive CI/CD Pipeline
+
+# -----------------------------------------------------------
+# 1. Trigger Events (အစပျိုးမည့် အဖြစ်အပျက်များ)
+# -----------------------------------------------------------
+on:
+  # 1.1 CI Stage (Quality Gate)
+  # Pull Request ဖွင့်သည့်အခါတိုင်း (သို့) PR ထဲသို့ Commit အသစ် Push လုပ်တိုင်း စတင်မည်။
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+  # 1.2 CD Stage (Deployment)
+  # main branch သို့ Code များ Merge ပြီးသည့်အခါတိုင်း စတင်မည်။
+  push:
+    branches: [main]
+
+  # 1.3 Manual Trigger (လိုချင်သည့်အခါ Run နိုင်ရန်)
+  workflow_dispatch:
+
+# -----------------------------------------------------------
+# 2. Jobs (လုပ်ငန်းများ)
+# -----------------------------------------------------------
+jobs:
+  # ==============================
+  # Job 1: CI - Build & Test (အရည်အသွေးစစ်ဆေးခြင်း)
+  # ==============================
+  ci_build_test:
+    name: Build & Test Application
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code (Code ကို ဆွဲယူခြင်း)
+        uses: actions/checkout@v4
+
+      # Dependencies များ မြန်မြန်ဆန်ဆန် Install ရန် Caching အသုံးပြုခြင်း
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm' # Caching mechanism
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # 2.1 Static Analysis & Linting (Code အရည်အသွေး စစ်ဆေးခြင်း)
+      - name: Run Code Linting
+        run: npm run lint
+
+      # 2.2 Unit & Integration Tests (Test များ Run ခြင်း)
+      - name: Run Tests
+        run: npm run test
+
+      # 2.3 Artifact Build (Deployment အတွက် Build လုပ်ခြင်း)
+      - name: Build Application Artifact
+        run: npm run build
+      
+      # 2.4 Artifact Upload (နောက် Job မှ ပြန်လည် အသုံးပြုရန် Artifact ကို သိမ်းဆည်းခြင်း)
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build-artifact
+          path: dist/ # Build လုပ်ထားသော ဖိုင်လမ်းကြောင်းကို သတ်မှတ်ပါ
+
+  # ==============================
+  # Job 2: CD - Deployment (ဖြန့်ချိခြင်း)
+  # ==============================
+  cd_deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    
+    # ci_build_test အောင်မြင်မှသာ ဒီ Job ကို ဆက် Run မည်။
+    needs: ci_build_test 
+    
+    # main branch သို့ push မှသာ Run မည်။ (CI stage တွင် မ Run စေရန်)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    # 3. Environment Protection (လုံခြုံရေး)
+    # ဤအဆင့်သို့ ရောက်ရန် Manual Review သို့မဟုတ် အချိန်စောင့်ဆိုင်းခြင်းများ သတ်မှတ်နိုင်ရန်
+    environment:
+      name: Production
+      url: https://your-app-url.com
+
+    steps:
+      - name: Download Build Artifact (CI Job မှ Artifact ကို ပြန်ဆွဲယူခြင်း)
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build-artifact
+          path: .
+
+      - name: Configure AWS Credentials (AWS Key ဖြင့် ခွင့်ပြုချက် ရယူခြင်း)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # ဖြန့်ချိခြင်း လုပ်ငန်းစဉ် ဥပမာ (S3 သို့ Upload လုပ်ခြင်း)
+      - name: Deploy to S3
+        run: |
+          aws s3 sync ./dist/ s3://${{ secrets.S3_BUCKET_NAME }}/ --delete
+          echo "Deployment successful to Production environment."
+
+      # Deployment ပြီးစီးကြောင်း စစ်ဆေးရန် (Health Check)
+      - name: Health Check (Optional)
+        run: curl -f https://your-app-url.com/health || exit 1
